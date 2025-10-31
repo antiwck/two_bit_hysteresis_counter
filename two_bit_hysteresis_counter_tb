@@ -1,0 +1,90 @@
+module two_bit_hysteresis_counter_tb;
+
+    localparam      HYSTERESIS_WIDTH                = 4                             ;
+    localparam      HYSTERESIS_ADDR_WIDTH           = 8                             ;
+    localparam      HYSTERESIS_DEPTH                = 1 << HYSTERESIS_ADDR_WIDTH    ;
+
+    logic                                           clk                             ;
+    logic                                           rst_n                           ;
+    logic                                           predict_update                  ;
+    logic                                           actual_taken                    ;
+    logic [HYSTERESIS_ADDR_WIDTH-1:0]               hyteresis_addr                  ;
+    logic                                           predict_acquire                 ;
+    logic                                           predict_taken                   ;
+
+    two_bit_hysteresis_counter # (
+        .HYSTERESIS_WIDTH                (HYSTERESIS_WIDTH                )         ,
+        .HYSTERESIS_ADDR_WIDTH           (HYSTERESIS_ADDR_WIDTH           )         ,
+        .HYSTERESIS_DEPTH                (HYSTERESIS_DEPTH                )
+    ) two_bit_hysteresis_counter_uut (
+        .clk                             (clk                             )         ,
+        .rst_n                           (rst_n                           )         ,
+        .predict_update                  (predict_update                  )         ,
+        .actual_taken                    (actual_taken                    )         ,
+        .hyteresis_addr                  (hyteresis_addr                  )         ,
+        .predict_acquire                 (predict_acquire                 )         ,
+        .predict_taken                   (predict_taken                   )
+    );
+
+    initial begin
+        clk = 0;
+        forever #5 clk = ~clk;
+    end
+
+    initial begin
+        rst_n = 0;
+        #15;
+        rst_n = 1;
+    end
+
+    initial begin
+        hyteresis_addr = '0;
+
+        #20;
+        for (int i = 0; i < HYSTERESIS_DEPTH; i ++) begin
+            
+            // Use the same address to test the hysteresis
+            hyteresis_addr  = hyteresis_addr + 1;
+
+            // NOT TAKEN
+            for (int j = 0; j < 4; j++) begin
+                // Update to PHT
+                predict_update  = 1                                             ;
+                predict_acquire = ~predict_update                               ;
+
+                actual_taken    = 0                                             ;
+
+                #20;
+
+                // Acquire from PHT
+                predict_update  = 0                                             ;
+                predict_acquire = ~predict_update                               ;
+
+                #20;
+
+            end
+
+            // TAKEN
+            for (int j = 0; j < 4; j++) begin
+                // Update to PHT
+                predict_update  = 1                                             ;
+                predict_acquire = ~predict_update                               ;
+
+                actual_taken    = 1                                             ;
+
+                #20;
+
+                // Acquire from PHT
+                predict_update  = 0                                             ;
+                predict_acquire = ~predict_update                               ;
+                
+                #20;
+
+            end
+
+        end
+
+        $stop;
+    end
+
+endmodule
